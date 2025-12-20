@@ -73,10 +73,11 @@ export const enum InstrumentType {
     customChipWave,
     mod,
 	fm6op,
+    sampler,
     length,
 }
 
-export const TypePresets: ReadonlyArray<string> = ["chip", "FM", "noise", "spectrum", "drumset", "harmonics", "pulse width", "picked string", "supersaw", "chip (custom)", "mod", "FM (6-op)"];
+export const TypePresets: ReadonlyArray<string> = ["chip", "FM", "noise", "spectrum", "drumset", "harmonics", "pulse width", "picked string", "supersaw", "chip (custom)", "mod", "FM (6-op)", "sampler"];
 
 export const enum DropdownID {
     Vibrato = 0,

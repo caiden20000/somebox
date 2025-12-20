@@ -25,7 +25,9 @@ Option 2 would be even better, but...
     - I'm sure a *lot* of this codebase revolves around there being 3 channel types, and I'll have to find every place this assumption exists
 
 I'm trying for option 1 first, my current game plan is: 
-- [ ] Add a new instrument type for drum/noise channels
+- [x] Add a new instrument type for drum/noise channels
+    - It's called "sampler"
+    - When you click it, you get an error message saying things corrupted. It's a start!
 - [ ] Add a new settings element that lets you choose custom chipwaves for each drum pitch lane
 - [ ] Add these settings to the instrument
 - [ ] Add a new "change" class that allows the changing of these samples and sample settings
