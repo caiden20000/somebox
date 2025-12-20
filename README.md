@@ -1,3 +1,41 @@
+# Somebox
+I want to implement a feature, where each pitch lane of a drum-type instrument can play a sample, like a normal drum machine interface.
+
+### Current progress:
+
+- [x] Have the idea
+- [ ] Understand the codebase
+- [ ] Implement the feature
+
+Hey, that's 1/3 of the way there!
+
+### Implementation ideas:
+There are 2 ways I think I could implement this:  
+1. As a new instrument "type" selection for drum/noise channels
+2. As a new channel type
+
+Option 1 seems the easiest, but I see an issue/s:  
+- Feature consistency
+    - I think the way I'd implement it is incongruous with the way beepbox is set up
+    - EG. How would my system deal with sliding notes between pitch lanes?
+    - The "mod" channel type is set up in such a way that you can't pitch bend, but it's not set up to play notes. How easy would it be to change the mod vs the drum channel type?
+
+Option 2 would be even better, but...  
+- Difficulty
+    - I'm sure a *lot* of this codebase revolves around there being 3 channel types, and I'll have to find every place this assumption exists
+
+I'm trying for option 1 first, my current game plan is: 
+- [ ] Add a new instrument type for drum/noise channels
+- [ ] Add a new settings element that lets you choose custom chipwaves for each drum pitch lane
+- [ ] Add these settings to the instrument
+- [ ] Add a new "change" class that allows the changing of these samples and sample settings
+- [ ] Record these settings in the song url (is this automatic?)
+
+This plan will expand and evolve as time goes on and I learn more about how the codebase works.
+
+
+---
+
 # UltraBox
 
 UltraBox is an online tool for sketching and sharing instrumental music.
