@@ -1442,6 +1442,8 @@ export class Config {
     public static readonly noiseChannelCountMax: number = 60;
     public static readonly modChannelCountMin: number = 0;
     public static readonly modChannelCountMax: number = 60;
+    public static readonly samplerChannelCountMin: number = 0;
+    public static readonly samplerChannelCountMax: number = 60;
     public static readonly noiseInterval: number = 6;
     public static readonly pitchesPerOctave: number = 12; // TODO: Use this for converting pitch to frequency.
     public static readonly drumCount: number = 12;

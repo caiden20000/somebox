@@ -14,6 +14,7 @@ export class ChannelSettingsPrompt implements Prompt {
 		private readonly _pitchChannelStepper: HTMLInputElement = input({style: "width: 3em; margin-left: 1em;", type: "number", step: "1"});
 		private readonly _drumChannelStepper: HTMLInputElement = input({style: "width: 3em; margin-left: 1em;", type: "number", step: "1"});
 		private readonly _modChannelStepper: HTMLInputElement = input({ style: "width: 3em; margin-left: 1em;", type: "number", step: "1" });
+		private readonly _samplerChannelStepper: HTMLInputElement = input({ style: "width: 3em; margin-left: 1em;", type: "number", step: "1" });
 		private readonly _layeredInstrumentsBox: HTMLInputElement = input({style: "width: 3em; margin-left: 1em;", type: "checkbox"});
 		private readonly _patternInstrumentsBox: HTMLInputElement = input({style: "width: 3em; margin-left: 1em;", type: "checkbox"});
 
@@ -33,6 +34,10 @@ export class ChannelSettingsPrompt implements Prompt {
 		div({ style: "display: flex; flex-direction: row; align-items: center; height: 2em; justify-content: flex-end;" },
 			"Mod channels:",
 			this._modChannelStepper,
+		),
+		div({ style: "display: flex; flex-direction: row; align-items: center; height: 2em; justify-content: flex-end;" },
+			"Sampler channels:",
+			this._samplerChannelStepper,
 		),
 		label({style: "display: flex; flex-direction: row; align-items: center; height: 2em; justify-content: flex-end;"},
 			"Available patterns per channel:",
@@ -73,6 +78,10 @@ export class ChannelSettingsPrompt implements Prompt {
 		this._modChannelStepper.value = this._doc.song.modChannelCount + "";
 		this._modChannelStepper.min = Config.modChannelCountMin + "";
 		this._modChannelStepper.max = Config.modChannelCountMax + "";
+			
+		this._samplerChannelStepper.value = this._doc.song.modChannelCount + "";
+		this._samplerChannelStepper.min = Config.samplerChannelCountMin + "";
+		this._samplerChannelStepper.max = Config.samplerChannelCountMax + "";
 		
 		this._layeredInstrumentsBox.checked = this._doc.song.layeredInstruments;
 		this._patternInstrumentsBox.checked = this._doc.song.patternInstruments;
@@ -85,10 +94,12 @@ export class ChannelSettingsPrompt implements Prompt {
 		this._pitchChannelStepper.addEventListener("keypress", ChannelSettingsPrompt._validateKey);
 		this._drumChannelStepper.addEventListener("keypress", ChannelSettingsPrompt._validateKey);
 		this._modChannelStepper.addEventListener("keypress", ChannelSettingsPrompt._validateKey);
+		this._samplerChannelStepper.addEventListener("keypress", ChannelSettingsPrompt._validateKey);
 		this._patternsStepper.addEventListener("blur", this._validateNumber);
 		this._pitchChannelStepper.addEventListener("blur", this._validateNumber);
 		this._drumChannelStepper.addEventListener("blur", this._validateNumber);
 		this._modChannelStepper.addEventListener("blur", this._validateNumber);
+		this._samplerChannelStepper.addEventListener("blur", this._validateNumber);
 		this.container.addEventListener("keydown", this._whenKeyPressed);
 	}
 		
@@ -103,10 +114,12 @@ export class ChannelSettingsPrompt implements Prompt {
 		this._pitchChannelStepper.removeEventListener("keypress", ChannelSettingsPrompt._validateKey);
 		this._drumChannelStepper.removeEventListener("keypress", ChannelSettingsPrompt._validateKey);
 		this._modChannelStepper.removeEventListener("keypress", ChannelSettingsPrompt._validateKey);
+		this._samplerChannelStepper.removeEventListener("keypress", ChannelSettingsPrompt._validateKey);
 		this._patternsStepper.removeEventListener("blur", this._validateNumber);
 		this._pitchChannelStepper.removeEventListener("blur", this._validateNumber);
 		this._drumChannelStepper.removeEventListener("blur", this._validateNumber);
 		this._modChannelStepper.removeEventListener("blur", this._validateNumber);
+		this._samplerChannelStepper.removeEventListener("blur", this._validateNumber);
 		this.container.removeEventListener("keydown", this._whenKeyPressed);
 	}
 		
@@ -138,7 +151,7 @@ export class ChannelSettingsPrompt implements Prompt {
 		const group: ChangeGroup = new ChangeGroup();
 		group.append(new ChangeInstrumentsFlags(this._doc, this._layeredInstrumentsBox.checked, this._patternInstrumentsBox.checked));
 		group.append(new ChangePatternsPerChannel(this._doc, ChannelSettingsPrompt._validate(this._patternsStepper)));
-		group.append(new ChangeChannelCount(this._doc, ChannelSettingsPrompt._validate(this._pitchChannelStepper), ChannelSettingsPrompt._validate(this._drumChannelStepper), ChannelSettingsPrompt._validate(this._modChannelStepper)));
+		group.append(new ChangeChannelCount(this._doc, ChannelSettingsPrompt._validate(this._pitchChannelStepper), ChannelSettingsPrompt._validate(this._drumChannelStepper), ChannelSettingsPrompt._validate(this._modChannelStepper), ChannelSettingsPrompt._validate(this._samplerChannelStepper)));
 		this._doc.prompt = null;
 		this._doc.record(group, true);
 	}

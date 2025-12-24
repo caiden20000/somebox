@@ -35,6 +35,44 @@ I'm trying for option 1 first, my current game plan is:
 
 This plan will expand and evolve as time goes on and I learn more about how the codebase works.
 
+### Update
+
+I'm trying option 2 now. I haven't yet removed the "sampler" instrument type from the preset selection menu, but I am adding a sampler channel type anywhere I can.
+I'm following the trail of mod -- anywhere there is a mod channel type logic, the sampler channel logic may need to be included.
+
+There are a lot of logic assumptions about how the channels are arranged, that it goes pitches -> noises -> mod, and channels are often counted like that and indexed like that.  
+This will cause errors in places I don't catch this assumption when adding the sampler channel type.
+
+Things to add sampler channel logic to:  
+- [ ] changes.ts
+    - [x] ChangeChannelCount
+    - [x] ChangeAddChannelInstrument
+    - [x] ChangeAppendInstrument
+    - [ ] More?
+- [ ] synth.ts
+    - [ ] Instrument
+        - [x] variables
+        - [x] constructor
+        - [x] setTypeAndReset
+        - [x] toJsonObject
+        - [ ] fromJsonObject
+        - [x] getFadeInSeconds
+        - [x] getFadeOutTicks
+    - [ ] Song
+        - [x] samplerChannelCount variable
+        - [x] getChannelCount
+        - [x] getChannelIsSampler
+        - [ ] toBase64String
+        - [ ] fromBase64String
+        - [ ] toJsonObject
+        - [ ] fromJsonObject
+        - [ ] More...
+    - [ ] 
+- [ ] More...
+
+*note: Current commit is **broken** as this "refactor" will take a long time.
+
+
 
 ---
 

@@ -1752,13 +1752,15 @@ export class ChangeCustomScale extends Change {
     }
 }
 
+// @TODO c2k: Add sampler channel type to this function
 export class ChangeChannelCount extends Change {
-    constructor(doc: SongDocument, newPitchChannelCount: number, newNoiseChannelCount: number, newModChannelCount: number) {
+    constructor(doc: SongDocument, newPitchChannelCount: number, newNoiseChannelCount: number, newModChannelCount: number, newSamplerChannelCount: number) {
         super();
-        if (doc.song.pitchChannelCount != newPitchChannelCount || doc.song.noiseChannelCount != newNoiseChannelCount || doc.song.modChannelCount != newModChannelCount) {
+        if (doc.song.pitchChannelCount != newPitchChannelCount || doc.song.noiseChannelCount != newNoiseChannelCount || doc.song.modChannelCount != newModChannelCount || doc.song.samplerChannelCount != newSamplerChannelCount) {
             const newChannels: Channel[] = [];
 
-            function changeGroup(newCount: number, oldCount: number, newStart: number, oldStart: number, octave: number, isNoise: boolean, isMod: boolean): void {
+            // @TODO c2k: Add sampler channel type to this function after I understand what it's doing. I might need to add it to Instrument first.
+            function changeGroup(newCount: number, oldCount: number, newStart: number, oldStart: number, octave: number, isNoise: boolean, isMod: boolean, isSampler: boolean): void {
                 for (let i: number = 0; i < newCount; i++) {
                     const channelIndex = i + newStart;
                     const oldChannel = i + oldStart;
@@ -1768,7 +1770,7 @@ export class ChangeChannelCount extends Change {
                         newChannels[channelIndex] = new Channel();
                         newChannels[channelIndex].octave = octave;
                         for (let j: number = 0; j < Config.instrumentCountMin; j++) {
-                            const instrument: Instrument = new Instrument(isNoise, isMod);
+                            const instrument: Instrument = new Instrument(isNoise, isMod, isSampler);
                             if (!isMod) {
                                 const presetValue: number = pickRandomPresetValue(isNoise);
                                 const preset: Preset = EditorConfig.valueToPreset(presetValue)!;
@@ -1776,7 +1778,7 @@ export class ChangeChannelCount extends Change {
                                 instrument.preset = presetValue;
                                 instrument.effects |= 1 << EffectType.panning;
                             } else {
-                                instrument.setTypeAndReset(InstrumentType.mod, isNoise, isMod);
+                                instrument.setTypeAndReset(InstrumentType.mod, isNoise, isMod, isSampler);
                             }
                             newChannels[channelIndex].instruments[j] = instrument;
                         }
@@ -1790,22 +1792,25 @@ export class ChangeChannelCount extends Change {
                 }
             }
 
-            changeGroup(newPitchChannelCount, doc.song.pitchChannelCount, 0, 0, 3, false, false);
-            changeGroup(newNoiseChannelCount, doc.song.noiseChannelCount, newPitchChannelCount, doc.song.pitchChannelCount, 0, true, false);
-            changeGroup(newModChannelCount, doc.song.modChannelCount, newNoiseChannelCount + newPitchChannelCount, doc.song.pitchChannelCount + doc.song.noiseChannelCount, 0, false, true);
+            changeGroup(newPitchChannelCount, doc.song.pitchChannelCount, 0, 0, 3, false, false, false);
+            changeGroup(newNoiseChannelCount, doc.song.noiseChannelCount, newPitchChannelCount, doc.song.pitchChannelCount, 0, true, false, false);
+            changeGroup(newModChannelCount, doc.song.modChannelCount, newNoiseChannelCount + newPitchChannelCount, doc.song.pitchChannelCount + doc.song.noiseChannelCount, 0, false, true, false);
+            changeGroup(newSamplerChannelCount, doc.song.samplerChannelCount, newNoiseChannelCount + newPitchChannelCount + newModChannelCount, doc.song.samplerChannelCount, 0, false, false, true);
 
             let oldPitchCount: number = doc.song.pitchChannelCount;
             doc.song.pitchChannelCount = newPitchChannelCount;
             doc.song.noiseChannelCount = newNoiseChannelCount;
             doc.song.modChannelCount = newModChannelCount;
+            doc.song.samplerChannelCount = newSamplerChannelCount;
 
             for (let channelIndex: number = 0; channelIndex < doc.song.getChannelCount(); channelIndex++) {
                 doc.song.channels[channelIndex] = newChannels[channelIndex];
             }
             doc.song.channels.length = doc.song.getChannelCount();
 
-            doc.channel = Math.min(doc.channel, newPitchChannelCount + newNoiseChannelCount + newModChannelCount - 1);
+            doc.channel = Math.min(doc.channel, newPitchChannelCount + newNoiseChannelCount + newModChannelCount + newSamplerChannelCount - 1);
 
+            
             // Determine if any mod instruments now refer to an invalid channel. Unset them if so
             for (let channelIndex: number = doc.song.pitchChannelCount + doc.song.noiseChannelCount; channelIndex < doc.song.getChannelCount(); channelIndex++) {
                 for (let instrumentIdx: number = 0; instrumentIdx < doc.song.channels[channelIndex].instruments.length; instrumentIdx++) {
@@ -1814,6 +1819,7 @@ export class ChangeChannelCount extends Change {
                         let instrument: Instrument = doc.song.channels[channelIndex].instruments[instrumentIdx];
                         let modChannel: number = instrument.modChannels[mod];
 
+                        // @c2k - The following if statament may preclude sampler channels from getting modulators vvv
                         // Boundary checking
                         if ((modChannel >= doc.song.pitchChannelCount && modChannel < oldPitchCount) || modChannel >= doc.song.pitchChannelCount + doc.song.noiseChannelCount) {
                             instrument.modulators[mod] = Config.modulators.dictionary["none"].index;
@@ -1836,19 +1842,22 @@ export class ChangeChannelCount extends Change {
     }
 }
 
+// @TODO c2k: Add sampler channel type to this function
 export class ChangeAddChannel extends ChangeGroup {
-	constructor(doc: SongDocument, index: number, isNoise: boolean, isMod: boolean) {
+	constructor(doc: SongDocument, index: number, isNoise: boolean, isMod: boolean, isSampler: boolean) {
 		super();
-		const newPitchChannelCount: number = doc.song.pitchChannelCount + (isNoise || isMod ? 0 : 1);
-        const newNoiseChannelCount: number = doc.song.noiseChannelCount + (!isNoise || isMod ? 0 : 1);
-        const newModChannelCount: number = doc.song.modChannelCount + (isNoise || !isMod ? 0 : 1);
+		const newPitchChannelCount: number = doc.song.pitchChannelCount + (isNoise || isMod || isSampler ? 0 : 1);
+        const newNoiseChannelCount: number = doc.song.noiseChannelCount + (!isNoise || isMod || isSampler ? 0 : 1);
+        const newModChannelCount: number = doc.song.modChannelCount + (isNoise || !isMod || isSampler ? 0 : 1);
+        const newSamplerChannelCount: number = doc.song.samplerChannelCount + (isNoise || isMod || !isSampler ? 0 : 1);
 
-        if (newPitchChannelCount <= Config.pitchChannelCountMax && newNoiseChannelCount <= Config.noiseChannelCountMax && newModChannelCount <= Config.modChannelCountMax) {
+        if (newPitchChannelCount <= Config.pitchChannelCountMax && newNoiseChannelCount <= Config.noiseChannelCountMax && newModChannelCount <= Config.modChannelCountMax && newSamplerChannelCount <= Config.samplerChannelCountMax) {
             const addedChannelIndex: number = doc.song.pitchChannelCount
-                + (isNoise || isMod ? doc.song.noiseChannelCount : 0)
-                + (isMod ? doc.song.modChannelCount : 0);
+                + (isNoise || isMod || isSampler ? doc.song.noiseChannelCount : 0)
+                + (isMod || isSampler ? doc.song.modChannelCount : 0)
+                + (isSampler ? doc.song.samplerChannelCount : 0);
 
-            this.append(new ChangeChannelCount(doc, newPitchChannelCount, newNoiseChannelCount, newModChannelCount));
+            this.append(new ChangeChannelCount(doc, newPitchChannelCount, newNoiseChannelCount, newModChannelCount, newSamplerChannelCount));
             if (addedChannelIndex - 1 >= index) {
                 this.append(new ChangeChannelOrder(doc, index, addedChannelIndex - 1, 1));
             }
@@ -1859,6 +1868,7 @@ export class ChangeAddChannel extends ChangeGroup {
 	}
 }
 
+// @TODO c2k: Add sampler channel type to this function
 export class ChangeRemoveChannel extends ChangeGroup {
 	constructor(doc: SongDocument, minIndex: number, maxIndex: number) {
         super();
@@ -1895,7 +1905,7 @@ export class ChangeRemoveChannel extends ChangeGroup {
 		}
 		
         if (doc.song.pitchChannelCount < Config.pitchChannelCountMin) {
-            this.append(new ChangeChannelCount(doc, Config.pitchChannelCountMin, doc.song.noiseChannelCount, doc.song.modChannelCount));
+            this.append(new ChangeChannelCount(doc, Config.pitchChannelCountMin, doc.song.noiseChannelCount, doc.song.modChannelCount, doc.song.samplerChannelCount));
         }
 
         ColorConfig.resetColors();
@@ -2871,11 +2881,12 @@ export class ChangeAddChannelInstrument extends Change {
         const channel: Channel = doc.song.channels[doc.channel];
         const isNoise: boolean = doc.song.getChannelIsNoise(doc.channel);
         const isMod: boolean = doc.song.getChannelIsMod(doc.channel);
+        const isSampler = doc.song.getChannelIsSampler(doc.channel);
         const maxInstruments: number = doc.song.getMaxInstrumentsPerChannel();
         if (channel.instruments.length >= maxInstruments) return;
         const presetValue: number = pickRandomPresetValue(isNoise);
         const preset: Preset = EditorConfig.valueToPreset(presetValue)!;
-        const instrument: Instrument = new Instrument(isNoise, isMod);
+        const instrument: Instrument = new Instrument(isNoise, isMod, isSampler);
         instrument.fromJsonObject(preset.settings, isNoise, isMod, false, false, 1);
         instrument.preset = presetValue;
         instrument.effects |= 1 << EffectType.panning;
@@ -3149,7 +3160,7 @@ export class ChangePasteInstrument extends ChangeGroup {
 export class ChangeAppendInstrument extends ChangeGroup {
     constructor(doc: SongDocument, channel: Channel, instrument: any) {
         super();
-        let newInstrument: Instrument = new Instrument(instrument["isDrum"], instrument["isMod"])
+        let newInstrument: Instrument = new Instrument(instrument["isDrum"], instrument["isMod"], instrument["isSampler"])
         newInstrument.fromJsonObject(instrument, instrument["isDrum"], instrument["isMod"], false, false);
         channel.instruments.push(newInstrument);
         this._didSomething();

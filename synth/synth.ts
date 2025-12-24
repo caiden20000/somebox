@@ -1368,6 +1368,7 @@ interface HeldMod {
     holdFor: number;
 }
 
+// @c2k - Added sampler channel type here
 export class Instrument {
     public type: InstrumentType = InstrumentType.chip;
     public preset: number = 0;
@@ -1457,7 +1458,16 @@ export class Instrument {
     public modulators: number[] = [];
     public modFilterTypes: number[] = [];
     public invalidModulators: boolean[] = [];
-    constructor(isNoiseChannel: boolean, isModChannel: boolean) {
+
+    // The index in Config.chipWaves that the samples are using.
+    public sampleWaves: number[] = [];
+    // Per-sample attributes
+    public sampleVolumes: number[] = [];
+    public samplePitches: number[] = [];
+    public sampleSpeeds: number[] = [];
+
+
+    constructor(isNoiseChannel: boolean, isModChannel: boolean, isSamplerChannel: boolean) {
 
         // @jummbus - My screed on how modulator arrays for instruments work, for the benefit of myself in the future, or whoever else.
         //
@@ -1483,6 +1493,15 @@ export class Instrument {
                 this.modInstruments.push(0);
                 this.modulators.push(Config.modulators.dictionary["none"].index);
             }
+        }
+
+        // @c2k - We will not have modulatable settings on the sampler on version 1
+        // Later we'll allow modulation to any sample's pitch & time settings.
+        // I hope this sets this channel up right. I don't know what's in this.modulators
+        if (isSamplerChannel) {
+            this.modChannels.push(-2);
+            this.modInstruments.push(0);
+            this.modulators.push(Config.modulators.dictionary["none"].index);
         }
 
         this.spectrumWave = new SpectrumWave(isNoiseChannel);
@@ -1518,9 +1537,11 @@ export class Instrument {
 
     }
 
-    public setTypeAndReset(type: InstrumentType, isNoiseChannel: boolean, isModChannel: boolean): void {
+    // @TODO c2k: When adding sampler attribute values, initialize them here
+    public setTypeAndReset(type: InstrumentType, isNoiseChannel: boolean, isModChannel: boolean, isSamplerChannel: boolean): void {
         // Mod channels are forced to one type.
         if (isModChannel) type = InstrumentType.mod;
+        if (isSamplerChannel) type = InstrumentType.sampler;
         this.type = type;
         this.preset = type;
         this.volume = 0;
@@ -1678,6 +1699,17 @@ export class Instrument {
 				this.pulseWidth = Config.pulseWidthRange - 1;
                 this.decimalOffset = 0;
 				break;
+            case InstrumentType.sampler:
+                this.chord = Config.chords.dictionary["simultaneous"].index;
+                // @TODO c2k: Modify this when adding modulatable settings
+                // this.modChannels = [];
+                // this.modInstruments = [];
+                // this.modulators = [];
+                this.sampleWaves = [];
+                this.sampleVolumes = [];
+                this.samplePitches = [];
+                this.sampleSpeeds = [];
+                break;
             default:
                 throw new Error("Unrecognized instrument type: " + type);
         }
@@ -2041,6 +2073,17 @@ export class Instrument {
                 instrumentObject["modSettings"][mod] = this.modulators[mod];
                 instrumentObject["modFilterTypes"][mod] = this.modFilterTypes[mod];
             }
+        } else if (this.type == InstrumentType.sampler) {
+            // Do I want to store the samples? Or just the indices?
+            // Above, custom chips store the sample itself. But it might be unnecessary.
+            // We will NOT do it for now, and implement it later.
+            // @TODO c2k: save the samples within the json rather than the indices. (or URL?)
+            instrumentObject["sampleWaves"] = this.sampleWaves;
+            instrumentObject["sampleVolumes"] = this.sampleVolumes; 
+            instrumentObject["samplePitches"] = this.samplePitches; 
+            instrumentObject["sampleSpeeds"] = this.sampleSpeeds; 
+            // This is likely set in the editor code during instrument copying.
+            // instrumentObject["isSampler"] = true;
         } else {
             throw new Error("Unrecognized instrument type");
         }
@@ -2054,7 +2097,7 @@ export class Instrument {
         return instrumentObject;
     }
 
-
+    // @TODO c2k: Add the sampler channel type to this. Low priority.
     public fromJsonObject(instrumentObject: any, isNoiseChannel: boolean, isModChannel: boolean, useSlowerRhythm: boolean, useFastTwoNoteArp: boolean, legacyGlobalReverb: number = 0, jsonFormat: string = Config.jsonFormat): void {
         if (instrumentObject == undefined) instrumentObject = {};
 
@@ -2732,7 +2775,7 @@ export class Instrument {
             }
 	}	
 
-        public getLargestControlPointCount(forNoteFilter: boolean) {
+    public getLargestControlPointCount(forNoteFilter: boolean) {
         let largest: number;
         if (forNoteFilter) {
             largest = this.noteFilter.controlPointCount;
@@ -2814,11 +2857,11 @@ export class Instrument {
     }
 
     public getFadeInSeconds(): number {
-        return (this.type == InstrumentType.drumset) ? 0.0 : Synth.fadeInSettingToSeconds(this.fadeIn);
+        return (this.type == InstrumentType.drumset || this.type == InstrumentType.sampler) ? 0.0 : Synth.fadeInSettingToSeconds(this.fadeIn);
     }
 
     public getFadeOutTicks(): number {
-        return (this.type == InstrumentType.drumset) ? Config.drumsetFadeOutTicks : Synth.fadeOutSettingToTicks(this.fadeOut)
+        return (this.type == InstrumentType.drumset || this.type == InstrumentType.sampler) ? Config.drumsetFadeOutTicks : Synth.fadeOutSettingToTicks(this.fadeOut)
     }
 
     public getChord(): Chord {
@@ -2840,6 +2883,9 @@ export class Channel {
     public name: string = "";
 }
 
+// @TODO c2k: Add sampler channel type to this class.
+// I've already added it in every relevant location that 
+// this.modChannelCount exists, assuming that's every place channel-type related.
 export class Song {
     private static readonly _format: string = Config.jsonFormat;
     private static readonly _oldestBeepboxVersion: number = 2;
@@ -2872,6 +2918,7 @@ export class Song {
     public pitchChannelCount: number;
     public noiseChannelCount: number;
     public modChannelCount: number;
+    public samplerChannelCount: number;
     public readonly channels: Channel[] = [];
     public limitDecay: number = 4.0;
     public limitRise: number = 4000.0;
@@ -2974,7 +3021,7 @@ export class Song {
     }
 
     public getChannelCount(): number {
-        return this.pitchChannelCount + this.noiseChannelCount + this.modChannelCount;
+        return this.pitchChannelCount + this.noiseChannelCount + this.modChannelCount + this.samplerChannelCount;
     }
 
     public getMaxInstrumentsPerChannel(): number {
@@ -3001,6 +3048,10 @@ export class Song {
         return (channelIndex >= this.pitchChannelCount + this.noiseChannelCount);
     }
 
+    public getChannelIsSampler(channelIndex: number): boolean {
+        return (channelIndex >= this.pitchChannelCount + this.noiseChannelCount + this.modChannelCount);
+    }
+
     public initToDefault(andResetChannels: boolean = true): void {
         this.scale = 0;
         this.scaleCustom = [true, false, true, true, false, false, false, true, true, false, true, true];
@@ -3025,6 +3076,7 @@ export class Song {
             this.pitchChannelCount = 3;
             this.noiseChannelCount = 1;
             this.modChannelCount = 0;
+            this.samplerChannelCount = 1;
             for (let channelIndex: number = 0; channelIndex < this.getChannelCount(); channelIndex++) {
                 const isNoiseChannel: boolean = channelIndex >= this.pitchChannelCount && channelIndex < this.pitchChannelCount + this.noiseChannelCount;
                 const isModChannel: boolean = channelIndex >= this.pitchChannelCount + this.noiseChannelCount;
@@ -3077,7 +3129,8 @@ export class Song {
             buffer.push(encodedSongTitle.charCodeAt(i));
         }
 
-        buffer.push(SongTagCode.channelCount, base64IntToCharCode[this.pitchChannelCount], base64IntToCharCode[this.noiseChannelCount], base64IntToCharCode[this.modChannelCount]);
+        // @TODO c2k: Can whatever unwraps this handle the this.samplerChannelCount at the end? 
+        buffer.push(SongTagCode.channelCount, base64IntToCharCode[this.pitchChannelCount], base64IntToCharCode[this.noiseChannelCount], base64IntToCharCode[this.modChannelCount], base64IntToCharCode[this.samplerChannelCount]);
         buffer.push(SongTagCode.scale, base64IntToCharCode[this.scale]);
         if (this.scale == Config.scales["dictionary"]["Custom"].index) {
             for (var i = 1; i < Config.pitchesPerOctave; i++) {
@@ -3917,6 +3970,7 @@ export class Song {
                 this.pitchChannelCount = validateRange(Config.pitchChannelCountMin, Config.pitchChannelCountMax, this.pitchChannelCount);
                 this.noiseChannelCount = validateRange(Config.noiseChannelCountMin, Config.noiseChannelCountMax, this.noiseChannelCount);
                 this.modChannelCount = validateRange(Config.modChannelCountMin, Config.modChannelCountMax, this.modChannelCount);
+                this.samplerChannelCount = validateRange(Config.samplerChannelCountMin, Config.samplerChannelCountMax, this.samplerChannelCount);
 
                 for (let channelIndex = this.channels.length; channelIndex < this.getChannelCount(); channelIndex++) {
                     this.channels[channelIndex] = new Channel();
@@ -6672,6 +6726,7 @@ export class Song {
         const newPitchChannels: Channel[] = [];
         const newNoiseChannels: Channel[] = [];
         const newModChannels: Channel[] = [];
+        const newSamplerChannels: Channel[] = [];
         if (jsonObject["channels"] != undefined) {
             for (let channelIndex: number = 0; channelIndex < jsonObject["channels"].length; channelIndex++) {
                 let channelObject: any = jsonObject["channels"][channelIndex];
@@ -6680,9 +6735,11 @@ export class Song {
 
                 let isNoiseChannel: boolean = false;
                 let isModChannel: boolean = false;
+                let isSamplerChannel: boolean = false;
                 if (channelObject["type"] != undefined) {
                     isNoiseChannel = (channelObject["type"] == "drum");
                     isModChannel = (channelObject["type"] == "mod");
+                    isSamplerChannel = (channelObject["type"] == "sampler");
                 } else {
                     // for older files, assume drums are channel 3.
                     isNoiseChannel = (channelIndex >= 3);
@@ -6691,8 +6748,9 @@ export class Song {
                     newNoiseChannels.push(channel);
                 } else if (isModChannel) {
                     newModChannels.push(channel);
-                }
-                else {
+                } else if (isSamplerChannel) {
+                    newSamplerChannels.push(channel);
+                } else {
                     newPitchChannels.push(channel);
                 }
 
@@ -6744,10 +6802,12 @@ export class Song {
         this.pitchChannelCount = newPitchChannels.length;
         this.noiseChannelCount = newNoiseChannels.length;
         this.modChannelCount = newModChannels.length;
+        this.samplerChannelCount = newSamplerChannels.length;
         this.channels.length = 0;
         Array.prototype.push.apply(this.channels, newPitchChannels);
         Array.prototype.push.apply(this.channels, newNoiseChannels);
         Array.prototype.push.apply(this.channels, newModChannels);
+        Array.prototype.push.apply(this.channels, newSamplerChannels);
 
         if (Config.willReloadForCustomSamples) {
             window.location.hash = this.toBase64String();
