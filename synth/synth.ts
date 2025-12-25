@@ -47,6 +47,13 @@ export function parseIntWithDefault<T>(s: string, defaultValue: T): number | T {
     return result;
 }
 
+export function getChannelTypeFromBooleans(isMod: boolean, isNoise: boolean, isSampler: boolean) {
+    if (isMod) return InstrumentType.mod;
+    if (isNoise) return InstrumentType.noise;
+    if (isSampler) return InstrumentType.sampler;
+    return InstrumentType.chip;
+}
+
 function encode32BitNumber(buffer: number[], x: number): void {
     // 0b11_
     buffer.push(base64IntToCharCode[(x >>> (6 * 5)) & 0x3]);
@@ -1537,7 +1544,6 @@ export class Instrument {
 
     }
 
-    // @TODO c2k: When adding sampler attribute values, initialize them here
     public setTypeAndReset(type: InstrumentType, isNoiseChannel: boolean, isModChannel: boolean, isSamplerChannel: boolean): void {
         // Mod channels are forced to one type.
         if (isModChannel) type = InstrumentType.mod;
@@ -2097,8 +2103,7 @@ export class Instrument {
         return instrumentObject;
     }
 
-    // @TODO c2k: Add the sampler channel type to this. Low priority.
-    public fromJsonObject(instrumentObject: any, isNoiseChannel: boolean, isModChannel: boolean, useSlowerRhythm: boolean, useFastTwoNoteArp: boolean, legacyGlobalReverb: number = 0, jsonFormat: string = Config.jsonFormat): void {
+    public fromJsonObject(instrumentObject: any, isNoiseChannel: boolean, isModChannel: boolean, isSamplerChannel: boolean, useSlowerRhythm: boolean, useFastTwoNoteArp: boolean, legacyGlobalReverb: number = 0, jsonFormat: string = Config.jsonFormat): void {
         if (instrumentObject == undefined) instrumentObject = {};
 
         const format: string = jsonFormat.toLowerCase();
@@ -2106,8 +2111,13 @@ export class Instrument {
         let type: InstrumentType = Config.instrumentTypeNames.indexOf(instrumentObject["type"]);
         // SynthBox support
         if ((format == "synthbox") && (instrumentObject["type"] == "FM")) type = Config.instrumentTypeNames.indexOf("FM6op");
-        if (<any>type == -1) type = isModChannel ? InstrumentType.mod : (isNoiseChannel ? InstrumentType.noise : InstrumentType.chip);
-        this.setTypeAndReset(type, isNoiseChannel, isModChannel);
+        if (<any>type == -1) {
+            if (isModChannel) type = InstrumentType.mod;
+            else if (isNoiseChannel) type = InstrumentType.noise;
+            else if (isSamplerChannel) type = InstrumentType.sampler;
+            else type = InstrumentType.chip;
+        }
+        this.setTypeAndReset(type, isNoiseChannel, isModChannel, isSamplerChannel);
 
         this.effects &= ~(1 << EffectType.panning);
 
@@ -2773,6 +2783,13 @@ export class Instrument {
                     this.chipWaveStartOffset = 0;
                 }
             }
+
+        if (type == InstrumentType.sampler) {
+            this.sampleWaves = instrumentObject["sampleWaves"];
+            this.sampleVolumes = instrumentObject["sampleVolumes"];
+            this.samplePitches = instrumentObject["samplePitches"];
+            this.sampleSpeeds = instrumentObject["sampleSpeeds"];
+        }
 	}	
 
     public getLargestControlPointCount(forNoteFilter: boolean) {
@@ -2884,6 +2901,7 @@ export class Channel {
 }
 
 // @TODO c2k: Add sampler channel type to this class.
+// @c2k - I'm not changing the version metadata yet, though the sampler may break compatability.
 // I've already added it in every relevant location that 
 // this.modChannelCount exists, assuming that's every place channel-type related.
 export class Song {
@@ -3080,6 +3098,7 @@ export class Song {
             for (let channelIndex: number = 0; channelIndex < this.getChannelCount(); channelIndex++) {
                 const isNoiseChannel: boolean = channelIndex >= this.pitchChannelCount && channelIndex < this.pitchChannelCount + this.noiseChannelCount;
                 const isModChannel: boolean = channelIndex >= this.pitchChannelCount + this.noiseChannelCount;
+                const isSamplerChannel: boolean = channelIndex >= this.pitchChannelCount + this.noiseChannelCount + this.modChannelCount;
                 if (this.channels.length <= channelIndex) {
                     this.channels[channelIndex] = new Channel();
                 }
@@ -3097,9 +3116,9 @@ export class Song {
 
                 for (let instrument: number = 0; instrument < Config.instrumentCountMin; instrument++) {
                     if (channel.instruments.length <= instrument) {
-                        channel.instruments[instrument] = new Instrument(isNoiseChannel, isModChannel);
+                        channel.instruments[instrument] = new Instrument(isNoiseChannel, isModChannel, isSamplerChannel);
                     }
-                    channel.instruments[instrument].setTypeAndReset(isModChannel ? InstrumentType.mod : (isNoiseChannel ? InstrumentType.noise : InstrumentType.chip), isNoiseChannel, isModChannel);
+                    channel.instruments[instrument].setTypeAndReset(getChannelTypeFromBooleans(isModChannel, isNoiseChannel, isSamplerChannel), isNoiseChannel, isModChannel, isSamplerChannel);
                 }
                 channel.instruments.length = Config.instrumentCountMin;
 
@@ -3967,6 +3986,9 @@ export class Song {
                 } else {
                     this.modChannelCount = base64CharCodeToInt[compressed.charCodeAt(charIndex++)];
                 }
+                // @TODO c2k: Modify versioning to detect when this is/n't available, like above.
+                this.samplerChannelCount = base64CharCodeToInt[compressed.charCodeAt(charIndex++)];
+
                 this.pitchChannelCount = validateRange(Config.pitchChannelCountMin, Config.pitchChannelCountMax, this.pitchChannelCount);
                 this.noiseChannelCount = validateRange(Config.noiseChannelCountMin, Config.noiseChannelCountMax, this.noiseChannelCount);
                 this.modChannelCount = validateRange(Config.modChannelCountMin, Config.modChannelCountMax, this.modChannelCount);
@@ -4187,7 +4209,7 @@ export class Song {
                         instrumentType += 1;
                     }
                 }
-                instrument.setTypeAndReset(instrumentType, instrumentChannelIterator >= this.pitchChannelCount && instrumentChannelIterator < this.pitchChannelCount + this.noiseChannelCount, instrumentChannelIterator >= this.pitchChannelCount + this.noiseChannelCount);
+                instrument.setTypeAndReset(instrumentType, instrumentChannelIterator >= this.pitchChannelCount && instrumentChannelIterator < this.pitchChannelCount + this.noiseChannelCount, instrumentChannelIterator >= this.pitchChannelCount + this.noiseChannelCount, instrumentChannelIterator >= this.pitchChannelCount + this.noiseChannelCount + this.modChannelCount);
 
                 // Anti-aliasing was added in BeepBox 3.0 (v6->v7) and JummBox 1.3 (v1->v2 roughly but some leakage possible)
                 if (((beforeSeven && fromBeepBox) || (beforeTwo && fromJummBox)) && (instrumentType == InstrumentType.chip || instrumentType == InstrumentType.customChipWave || instrumentType == InstrumentType.pwm)) {

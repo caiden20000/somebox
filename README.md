@@ -1,5 +1,5 @@
 # Somebox
-I want to implement a feature, where each pitch lane of a drum-type instrument can play a sample, like a normal drum machine interface.
+I want to implement a feature, where each pitch lane of a drum-type instrument can play a sample, like a normal drum machine interface. I find it tedious to have 7 different channels for 7 different drum samples if they're all simple samples, no pitch changing, etc.
 
 ### Current progress:
 
@@ -50,29 +50,58 @@ Things to add sampler channel logic to:
     - [x] ChangeAppendInstrument
     - [ ] More?
 - [ ] synth.ts
-    - [ ] Instrument
+    - [x] Instrument
         - [x] variables
         - [x] constructor
         - [x] setTypeAndReset
         - [x] toJsonObject
-        - [ ] fromJsonObject
+        - [x] fromJsonObject
         - [x] getFadeInSeconds
         - [x] getFadeOutTicks
-    - [ ] Song
+    - [x] Song
         - [x] samplerChannelCount variable
         - [x] getChannelCount
         - [x] getChannelIsSampler
-        - [ ] toBase64String
-        - [ ] fromBase64String
-        - [ ] toJsonObject
-        - [ ] fromJsonObject
-        - [ ] More...
+        - [x] initToDefault
+        - [x] toBase64String - SongTagCode.channelCount
+        - [x] fromBase64String - SongTagCode.channelCount
+        - [x] toJsonObject / fromJsonObject no change needed
+    - [x] Added getChannelTypeFromBooleans to replace where *nested ternary operators* (WHY?) needed extending
+    - [ ] More...
+- [ ] SynthConfig.ts
+    - [ ] Config
+        - [x] instrumentTypeNames
+        - [ ] 
+        - [ ] 
     - [ ] 
-- [ ] More...
+        - [ ] 
+        - [ ] 
+    - [ ] 
+        - [ ] 
+        - [ ] 
+- [ ] 
+- [ ] 
 
 *note: Current commit is **broken** as this "refactor" will take a long time.
 
 
+When adding more parameters to sampler, you must add them in several places:
+- Instrument class variables
+- Instrument.setTypeAndReset
+- Instrument.toJsonObject
+- Instrument.fromJsonObject
+- ... more
+
+
+### What???
+
+I'm extending a system I feel is inherently flawed -- specifying the channel type with booleans.  
+We need to be passing in something like:
+`enum ChannelType { chip, noise, mod, sampler }`
+not doing this silly isMod, isNoise, isSampler.  
+It's already silly with isMod and isNoise, and I'm adding sampler to it, making it worse.
+In the future I'll want to think about refactoring this element.  
+But then again, once I'm finished, I won't want to touch this stuff since it ain't broke...
 
 ---
 
